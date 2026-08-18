@@ -4,10 +4,7 @@
 #
 # 基于官方 cirruslabs/flutter 镜像（其底层为 Ubuntu 24.04 / noble），
 # 补充编译 Web / Linux 平台应用所需的系统工具链。
-#
-# 注意：本镜像只负责 Linux / Web 平台。Flutter 的 Windows 桌面应用无法在
-# Linux 上交叉编译（需要 VS Build Tools + Windows SDK），须另用 Windows 容器
-# 或 Windows CI runner 构建，见 docs/windows-build.md。
+# 本镜像仅支持 Web / Linux 平台。
 #
 # 构建方式（版本通过 build-arg 传入，见 build.sh）：
 #   docker build \
@@ -36,11 +33,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LC_ALL=C.UTF-8
 
 # ---------------------------------------------------------------
-# 1) 各平台编译依赖
+# 1) Web / Linux 平台编译依赖
 #    - Web:    无需额外系统工具（Dart 直接编译为 JS/WASM）
 #    - Linux:  clang / cmake / ninja-build / pkg-config / GTK3 开发库
 #              + libstdc++-12-dev（处理宿主 GCC 与构建链的 ABI 兼容）
-#    - Windows: 不支持在本镜像交叉编译，见 docs/windows-build.md
 # ---------------------------------------------------------------
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -64,7 +60,7 @@ RUN apt-get update \
 
 # ---------------------------------------------------------------
 # 2) 可选：当指定了 CMAKE_VERSION 时，安装官方预编译二进制 cmake
-#    覆盖系统仓库版本，保证跨平台统一版本。
+#    覆盖系统仓库版本，保证 Web / Linux 构建环境版本一致。
 # ---------------------------------------------------------------
 RUN set -eux; \
     if [ -n "${CMAKE_VERSION}" ]; then \
@@ -96,11 +92,10 @@ RUN set -eux; \
 
 # ---------------------------------------------------------------
 # 4) Flutter Linux 桌面与 Web 平台预编译缓存
-#    - Linux / Web 的 Dart 平台产物均需 precache；
-#    - Windows 桌面不在本镜像构建（见 docs/windows-build.md）。
+#    - Linux / Web 的 Dart 平台产物均需 precache。
 # ---------------------------------------------------------------
 RUN flutter precache --linux --web \
-    && flutter config --enable-linux-desktop \
+    && flutter config --enable-web --enable-linux-desktop \
     && flutter doctor -v \
     && chown -R root:root ${FLUTTER_HOME}
 
