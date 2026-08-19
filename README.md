@@ -27,8 +27,8 @@ docker pull ghcr.io/linfulongnet/flutter-desktop-builder:3.44.0
 
 ```bash
 docker run --rm \
-  -v "$PWD":/app \
-  -w /app \
+  -v "$PWD":/tmp \
+  -w /tmp \
   ghcr.io/linfulongnet/flutter-desktop-builder:3.44.0 \
   flutter build web --release
 ```
@@ -37,8 +37,8 @@ docker run --rm \
 
 ```bash
 docker run --rm \
-  -v "$PWD":/app \
-  -w /app \
+  -v "$PWD":/tmp \
+  -w /tmp \
   ghcr.io/linfulongnet/flutter-desktop-builder:3.44.0 \
   flutter build linux --release
 ```
