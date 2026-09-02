@@ -1,65 +1,62 @@
-# Flutter Desktop Builder
+# Flutter Linux/Web Builder
 
-用于在 Linux 容器中构建 Flutter Web 和 Linux desktop 应用的镜像。
+基于以下两个同版本镜像合成，同时支持 Flutter Web 与 Linux desktop 应用编译：
 
-## 镜像
+- `ghcr.io/gmeligio/flutter-linux:3.47.2`
+- `ghcr.io/gmeligio/flutter-web:3.47.2`
+
+默认生成镜像：
 
 ```text
-ghcr.io/linfulongnet/flutter-desktop-builder:3.44.0
+linfulongnet/flutter-linux-web:3.47.2
 ```
 
-镜像包含：
+镜像包含 Clang、CMake、Ninja、pkg-config、GTK 3 和 `libsecret-1-dev` 开发库及 Linux engine artifacts，并从 Web 基础镜像合入 Web SDK/engine artifacts。镜像构建过程中会实际编译一次 Web 和 Linux 示例应用，验证两套工具链。
 
-- Flutter 3.44.0
-- Web 与 Linux desktop 预缓存 SDK
-- Clang、LLD、CMake 3.31.6、Ninja 1.13.2
-- GTK3、pkg-config 及 Linux 桌面应用所需的开发库
+> 上游两个 3.47.2 镜像目前仅提供 `linux/amd64`。
 
-## 使用
-
-拉取镜像：
-
-```bash
-docker pull ghcr.io/linfulongnet/flutter-desktop-builder:3.44.0
-```
-
-在项目目录中构建 Web 应用：
-
-```bash
-docker run --rm \
-  -v "$PWD":/tmp \
-  -w /tmp \
-  ghcr.io/linfulongnet/flutter-desktop-builder:3.44.0 \
-  flutter build web --release
-```
-
-构建 Linux desktop 应用：
-
-```bash
-docker run --rm \
-  -v "$PWD":/tmp \
-  -w /tmp \
-  ghcr.io/linfulongnet/flutter-desktop-builder:3.44.0 \
-  flutter build linux --release
-```
-
-## 本地构建
-
-使用默认版本构建：
+## 构建镜像
 
 ```bash
 ./build.sh
 ```
 
-指定版本并推送到 GHCR：
+等价的 Docker 命令：
+
+```bash
+docker build \
+  --build-arg FLUTTER_VERSION=3.47.2 \
+  -t linfulongnet/flutter-linux-web:3.47.2 .
+```
+
+构建并推送到镜像仓库：
 
 ```bash
 ./build.sh \
-  --flutter 3.44.0 \
-  --cmake 3.31.6 \
-  --ninja 1.13.2 \
-  --image ghcr.io/linfulongnet/flutter-desktop-builder \
+  --image ghcr.io/your-name/flutter-linux-web \
   --push
 ```
 
-`--platform` 可用于通过 Docker Buildx 构建指定的 Linux 容器架构。
+## 编译 Flutter 应用
+
+在 Flutter 项目目录中编译 Web：
+
+```bash
+docker run --rm \
+  -v "$PWD:/workspace" \
+  -w /workspace \
+  linfulongnet/flutter-linux-web:3.47.2 \
+  flutter build web --release
+```
+
+编译 Linux desktop：
+
+```bash
+docker run --rm \
+  -v "$PWD:/workspace" \
+  -w /workspace \
+  linfulongnet/flutter-linux-web:3.47.2 \
+  flutter build linux --release
+```
+
+镜像默认运行用户为 `root`，容器内可直接使用 `apt-get` 安装额外依赖。上游 SDK 仍由 UID/GID `1001:1001` 的 `flutter` 用户准备；如需非 root 运行，可增加 `--user flutter`，并确保宿主项目目录允许该用户写入 `.dart_tool/` 与 `build/`。

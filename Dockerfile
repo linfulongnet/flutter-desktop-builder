@@ -1,107 +1,67 @@
 # syntax=docker/dockerfile:1
-#
-# Flutter Desktop/Web Builder
-#
-# 基于官方 cirruslabs/flutter 镜像（其底层为 Ubuntu 24.04 / noble），
-# 补充编译 Web / Linux 平台应用所需的系统工具链。
-# 本镜像仅支持 Web / Linux 平台。
-#
-# 构建方式（版本通过 build-arg 传入，见 build.sh）：
-#   docker build \
-#     --build-arg FLUTTER_BASE_TAG=3.44.0 \
-#     --build-arg CMAKE_VERSION=3.30.5 \
-#     --build-arg NINJA_VERSION=1.12.1 \
-#     -t flutter-desktop-builder:latest .
-#
-ARG FLUTTER_BASE_TAG=3.44.0
 
-FROM ghcr.io/cirruslabs/flutter:${FLUTTER_BASE_TAG}
+ARG FLUTTER_VERSION=3.47.2
+
+# flutter-web contains the Web engine artifacts, while flutter-linux contains
+# the native Linux build toolchain and Linux engine artifacts.
+FROM ghcr.io/gmeligio/flutter-web:${FLUTTER_VERSION} AS flutter-web
+FROM ghcr.io/gmeligio/flutter-linux:${FLUTTER_VERSION}
+
+LABEL org.opencontainers.image.title="flutter-linux-web" \
+      org.opencontainers.image.description="Flutter builder for Web and Linux desktop applications"
 
 USER root
 
-# ---------------------------------------------------------------
-# 可覆盖的工具版本（build.sh 会透传）
-# ---------------------------------------------------------------
-# cmake / ninja 通过 Ubuntu 24.04 官方仓库安装，版本较新；
-# 若系统仓库版本满足不了需求，可用下面 ARG 强制从源码/官方二进制安装。
-# 工具版本必须有默认值（不能为空，会与 build.sh 保持一致）。
-ARG CMAKE_VERSION=3.31.6
-ARG NINJA_VERSION=1.13.2
-
-ENV DEBIAN_FRONTEND=noninteractive \
-    LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8
-
-# ---------------------------------------------------------------
-# 1) Web / Linux 平台编译依赖
-#    - Web:    无需额外系统工具（Dart 直接编译为 JS/WASM）
-#    - Linux:  clang / cmake / ninja-build / pkg-config / GTK3 开发库
-#              + libstdc++-12-dev（处理宿主 GCC 与构建链的 ABI 兼容）
-# ---------------------------------------------------------------
+# Keep the platform dependencies explicit in this image. The Linux upstream
+# image already contains these packages, so this remains idempotent if its
+# package set changes in a future release.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        wget \
-        git \
-        unzip \
-        xz-utils \
-        # ---- Linux 桌面平台 ----
         clang \
-        lld \
         cmake \
         ninja-build \
         pkg-config \
         libgtk-3-dev \
-        libstdc++-12-dev \
-        liblzma-dev \
         libsecret-1-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# ---------------------------------------------------------------
-# 2) 可选：当指定了 CMAKE_VERSION 时，安装官方预编译二进制 cmake
-#    覆盖系统仓库版本，保证 Web / Linux 构建环境版本一致。
-# ---------------------------------------------------------------
-RUN set -eux; \
-    if [ -n "${CMAKE_VERSION}" ]; then \
-        arch="$(dpkg --print-architecture)"; \
-        case "$arch" in \
-            amd64) cmake_arch="x86_64" ;; \
-            arm64) cmake_arch="aarch64" ;; \
-            *)     cmake_arch="x86_64" ;; \
-        esac; \
-        tarball="cmake-${CMAKE_VERSION}-linux-${cmake_arch}.tar.gz"; \
-        url="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/${tarball}"; \
-        curl -fsSL "$url" -o /tmp/cmake.tar.gz; \
-        tar -xzf /tmp/cmake.tar.gz -C /opt; \
-        rm -f /tmp/cmake.tar.gz; \
-        ln -sf "/opt/cmake-${CMAKE_VERSION}-linux-${cmake_arch}/bin/"* /usr/local/bin/; \
-    fi
+# The SDK is owned by the upstream flutter user. Allow root to invoke Flutter
+# without Git's "dubious ownership" protection rejecting that repository.
+RUN git config --system --add safe.directory /home/flutter/sdks/flutter
 
-# ---------------------------------------------------------------
-# 3) 可选：当指定了 NINJA_VERSION 时，安装官方预编译二进制 ninja
-# ---------------------------------------------------------------
-RUN set -eux; \
-    if [ -n "${NINJA_VERSION}" ]; then \
-        url="https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-linux.zip"; \
-        curl -fsSL "$url" -o /tmp/ninja.zip; \
-        unzip -o /tmp/ninja.zip -d /usr/local/bin; \
-        chmod +x /usr/local/bin/ninja; \
-        rm -f /tmp/ninja.zip; \
-    fi
+# Both upstream images use the same Flutter release and SDK location. Merge
+# only the Web-specific artifacts so the Linux SDK cache is left intact.
+COPY --from=flutter-web --chown=flutter:flutter \
+    /home/flutter/sdks/flutter/bin/cache/flutter_web_sdk/ \
+    /home/flutter/sdks/flutter/bin/cache/flutter_web_sdk/
+COPY --from=flutter-web --chown=flutter:flutter \
+    /home/flutter/sdks/flutter/bin/cache/flutter_web_sdk.stamp \
+    /home/flutter/sdks/flutter/bin/cache/flutter_web_sdk.stamp
 
-# ---------------------------------------------------------------
-# 4) Flutter Linux 桌面与 Web 平台预编译缓存
-#    - Linux / Web 的 Dart 平台产物均需 precache。
-# ---------------------------------------------------------------
-RUN flutter precache --linux --web \
+USER flutter:flutter
+WORKDIR /home/flutter
+
+# The Linux base image installs clang, CMake, Ninja, pkg-config and GTK 3.
+# Verify that toolchain, enable both platforms, and compile a smoke-test app so
+# missing packages or incomplete platform caches fail during image creation.
+RUN command -v clang \
+    && command -v cmake \
+    && command -v ninja \
+    && command -v pkg-config \
+    && pkg-config --exists gtk+-3.0 \
     && flutter config --enable-web --enable-linux-desktop \
-    && flutter doctor -v \
-    && chown -R root:root ${FLUTTER_HOME}
+    && flutter precache --web --linux \
+    && flutter create --platforms=web,linux /tmp/flutter_platform_smoke_test \
+    && cd /tmp/flutter_platform_smoke_test \
+    && flutter build web --release \
+    && flutter build linux --release \
+    && cd /home/flutter \
+    && rm -rf /tmp/flutter_platform_smoke_test \
+    && flutter doctor -v
 
-# 确保工具链可被识别
-ENV PATH="/usr/local/bin:${PATH}"
-
-WORKDIR /tmp
+# Root is the default runtime user so callers can install extra build
+# dependencies with apt-get. Use `docker run --user flutter ...` when a
+# rootless container is preferred.
+USER root
 
 CMD ["/bin/bash"]
