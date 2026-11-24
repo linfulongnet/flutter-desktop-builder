@@ -2,18 +2,18 @@
 
 基于以下两个同版本镜像合成，同时支持 Flutter Web 与 Linux desktop 应用编译：
 
-- `ghcr.io/gmeligio/flutter-linux:3.47.2`
-- `ghcr.io/gmeligio/flutter-web:3.47.2`
+- `ghcr.io/gmeligio/flutter-linux:3.50.0`
+- `ghcr.io/gmeligio/flutter-web:3.50.0`
 
 默认生成镜像：
 
 ```text
-linfulongnet/flutter-linux-web:3.47.2
+linfulongnet/flutter-linux-web:3.50.0
 ```
 
 镜像包含 Clang、CMake、Ninja、pkg-config、GTK 3 和 `libsecret-1-dev` 开发库及 Linux engine artifacts，并从 Web 基础镜像合入 Web SDK/engine artifacts。镜像构建过程中会实际编译一次 Web 和 Linux 示例应用，验证两套工具链。
 
-> 上游两个 3.47.2 镜像目前仅提供 `linux/amd64`。
+> 上游两个 3.50.0 镜像目前仅提供 `linux/amd64`。
 
 ## 构建镜像
 
@@ -25,8 +25,8 @@ linfulongnet/flutter-linux-web:3.47.2
 
 ```bash
 docker build \
-  --build-arg FLUTTER_VERSION=3.47.2 \
-  -t linfulongnet/flutter-linux-web:3.47.2 .
+  --build-arg FLUTTER_VERSION=3.50.0 \
+  -t linfulongnet/flutter-linux-web:3.50.0 .
 ```
 
 构建并推送到镜像仓库：
@@ -45,7 +45,7 @@ docker build \
 docker run --rm \
   -v "$PWD:/workspace" \
   -w /workspace \
-  linfulongnet/flutter-linux-web:3.47.2 \
+  linfulongnet/flutter-linux-web:3.50.0 \
   flutter build web --release
 ```
 
@@ -55,7 +55,7 @@ docker run --rm \
 docker run --rm \
   -v "$PWD:/workspace" \
   -w /workspace \
-  linfulongnet/flutter-linux-web:3.47.2 \
+  linfulongnet/flutter-linux-web:3.50.0 \
   flutter build linux --release
 ```
 

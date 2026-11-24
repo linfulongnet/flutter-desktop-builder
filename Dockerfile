@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG FLUTTER_VERSION=3.47.2
+ARG FLUTTER_VERSION=3.50.0
 
 # flutter-web contains the Web engine artifacts, while flutter-linux contains
 # the native Linux build toolchain and Linux engine artifacts.

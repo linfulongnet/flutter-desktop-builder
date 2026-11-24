@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-FLUTTER_VERSION="${FLUTTER_VERSION:-3.47.2}"
+FLUTTER_VERSION="${FLUTTER_VERSION:-3.50.0}"
 IMAGE_NAME="${IMAGE_NAME:-linfulongnet/flutter-linux-web}"
 IMAGE_TAG="${IMAGE_TAG:-}"
 
@@ -10,10 +10,10 @@ usage() {
 用法: ./build.sh [选项]
 
 选项:
-  --flutter <版本>   指定 gmeligio Flutter Linux/Web 基础镜像版本（默认 3.47.2）
+  --flutter <版本>   指定 gmeligio Flutter Linux/Web 基础镜像版本（默认 3.50.0）
   --image <名称>     指定镜像名（默认 linfulongnet/flutter-linux-web）
   --tag <标签>       指定镜像标签（默认跟随 Flutter 版本）
-  --platform <平台>  构建平台；上游 3.47.2 镜像仅支持 linux/amd64
+  --platform <平台>  构建平台；上游 3.50.0 镜像仅支持 linux/amd64
   --push             构建完成后推送到 registry
   --no-cache         不使用构建缓存
   -h, --help         显示本帮助
